@@ -2,6 +2,7 @@ package com.stimulo.app.scheduling;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.work.Worker;
@@ -58,7 +59,11 @@ public class ScheduleTriggerWorker extends Worker {
         serviceIntent.putExtra(KEY_SCHEDULE_ID, scheduleId);
         serviceIntent.putExtra(KEY_SCHEDULE_NAME, name);
         serviceIntent.putExtra(KEY_ESP_COMMAND, espCommand != null ? espCommand : "BUZZ:500:1");
-        getApplicationContext().startForegroundService(serviceIntent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getApplicationContext().startForegroundService(serviceIntent);
+        } else {
+            getApplicationContext().startService(serviceIntent);
+        }
 
         // 3. Log trigger occurrence
         TriggerLogEntity log = new TriggerLogEntity();

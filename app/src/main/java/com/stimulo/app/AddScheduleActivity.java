@@ -100,10 +100,10 @@ public class AddScheduleActivity extends AppCompatActivity {
         } else if (binding.radioCount.isChecked()) {
             String countStr = binding.etRepeatCount.getText().toString().trim();
             if (TextUtils.isEmpty(countStr) || Integer.parseInt(countStr) < 1) {
-                binding.tilRepeatCount.setError("Enter a valid count (≥ 1)");
+                binding.layoutRepeatCount.setError("Enter a valid count (≥ 1)");
                 return;
             }
-            binding.tilRepeatCount.setError(null);
+            binding.layoutRepeatCount.setError(null);
             repeatCount = Integer.parseInt(countStr);
             repeatType = RepeatType.COUNT_BASED;
         } else {
