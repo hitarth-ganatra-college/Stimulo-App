@@ -39,6 +39,8 @@ public class ScheduleManager {
                 .putInt(ScheduleTriggerWorker.KEY_HOUR, schedule.hourOfDay)
                 .putInt(ScheduleTriggerWorker.KEY_MINUTE, schedule.minuteOfHour)
                 .putString(ScheduleTriggerWorker.KEY_ESP_COMMAND, schedule.espCommand)
+                .putString(ScheduleTriggerWorker.KEY_WEEKDAYS, schedule.weekdays)
+                .putInt(ScheduleTriggerWorker.KEY_INTERVAL_MINUTES, schedule.intervalMinutes)
                 .build();
 
         OneTimeWorkRequest workRequest = new OneTimeWorkRequest.Builder(ScheduleTriggerWorker.class)

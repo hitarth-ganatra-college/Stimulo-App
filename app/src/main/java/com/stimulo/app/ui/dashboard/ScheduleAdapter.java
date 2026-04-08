@@ -2,6 +2,7 @@ package com.stimulo.app.ui.dashboard;
 
 import android.text.format.DateFormat;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.DiffUtil;
@@ -42,7 +43,10 @@ public class ScheduleAdapter extends ListAdapter<ScheduleEntity, ScheduleAdapter
                     return a.name.equals(b.name)
                             && a.triggerTimeMillis == b.triggerTimeMillis
                             && a.isActive == b.isActive
-                            && a.repeatType.equals(b.repeatType);
+                            && a.repeatType.equals(b.repeatType)
+                            && a.intervalMinutes == b.intervalMinutes
+                            && java.util.Objects.equals(a.category, b.category)
+                            && java.util.Objects.equals(a.weekdays, b.weekdays);
                 }
             };
 
@@ -73,6 +77,14 @@ public class ScheduleAdapter extends ListAdapter<ScheduleEntity, ScheduleAdapter
                     schedule.description != null && !schedule.description.isEmpty()
                             ? schedule.description : "No description");
 
+            // Category badge
+            if (schedule.category != null && !schedule.category.isEmpty()) {
+                binding.tvCategory.setText(schedule.category);
+                binding.tvCategory.setVisibility(View.VISIBLE);
+            } else {
+                binding.tvCategory.setVisibility(View.GONE);
+            }
+
             String timeStr = DateFormat.format("MMM dd, yyyy HH:mm",
                     new Date(schedule.triggerTimeMillis)).toString();
             binding.tvNextTrigger.setText("Next: " + timeStr);
@@ -88,12 +100,19 @@ public class ScheduleAdapter extends ListAdapter<ScheduleEntity, ScheduleAdapter
                 case DAILY:
                     repeatLabel = "Daily";
                     break;
+                case WEEKDAYS:
+                    repeatLabel = formatWeekdays(schedule.weekdays);
+                    break;
                 case COUNT_BASED:
                     repeatLabel = "×" + schedule.remainingCount + " remaining";
                     break;
                 default:
                     repeatLabel = "Once";
                     break;
+            }
+
+            if (schedule.intervalMinutes > 0) {
+                repeatLabel += " · every " + formatInterval(schedule.intervalMinutes);
             }
             binding.tvRepeat.setText(repeatLabel);
             binding.switchActive.setChecked(schedule.isActive);
@@ -102,6 +121,29 @@ public class ScheduleAdapter extends ListAdapter<ScheduleEntity, ScheduleAdapter
             binding.switchActive.setOnCheckedChangeListener(
                     (btn, checked) -> toggleListener.onToggle(schedule));
             binding.btnDelete.setOnClickListener(v -> deleteListener.onDelete(schedule));
+        }
+
+        private String formatWeekdays(String weekdays) {
+            if (weekdays == null || weekdays.isEmpty()) return "Weekdays";
+            String[] names = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+            StringBuilder sb = new StringBuilder();
+            for (String part : weekdays.split(",")) {
+                try {
+                    int day = Integer.parseInt(part.trim());
+                    if (day >= 1 && day <= 7) {
+                        if (sb.length() > 0) sb.append(" ");
+                        sb.append(names[day - 1]);
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+            return sb.length() > 0 ? sb.toString() : "Weekdays";
+        }
+
+        private String formatInterval(int minutes) {
+            if (minutes < 60) return minutes + " min";
+            int hours = minutes / 60;
+            int rem = minutes % 60;
+            return rem == 0 ? hours + " hr" : hours + "h " + rem + "m";
         }
     }
 }

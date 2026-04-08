@@ -11,4 +11,5 @@
     <color name="colorError">#B3261E</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
+    <color name="colorDivider">#E0DEE8</color>
 </resources>

@@ -3,7 +3,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/colorBackground">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -20,21 +21,33 @@
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:fillViewport="true"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="@dimen/spacing_medium">
 
+            <!-- ── Section: Basic Info ── -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/lbl_basic_info"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorPrimary"
+                android:textStyle="bold"
+                android:layout_marginBottom="@dimen/spacing_small" />
+
+            <!-- Event Name -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/til_name"
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Event / Habit Name *"
-                android:layout_marginBottom="12dp">
+                android:hint="@string/hint_event_name"
+                android:layout_marginBottom="@dimen/spacing_small">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_name"
                     android:layout_width="match_parent"
@@ -43,13 +56,14 @@
                     android:imeOptions="actionNext" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Description -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/til_description"
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Description (optional)"
-                android:layout_marginBottom="12dp">
+                android:hint="@string/hint_description"
+                android:layout_marginBottom="@dimen/spacing_small">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_description"
                     android:layout_width="match_parent"
@@ -59,90 +73,305 @@
                     android:maxLines="4" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Category exposed dropdown -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_category"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/hint_category"
+                android:layout_marginBottom="@dimen/spacing_medium">
+                <AutoCompleteTextView
+                    android:id="@+id/et_category"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:focusable="false"
+                    android:inputType="none" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/colorDivider"
+                android:layout_marginBottom="@dimen/spacing_medium" />
+
+            <!-- ── Section: Date &amp; Time ── -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Select Time"
-                android:textSize="14sp"
+                android:text="@string/lbl_when"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorPrimary"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/helper_datetime"
+                android:textAppearance="?attr/textAppearanceBodySmall"
                 android:textColor="@color/colorSecondary"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="@dimen/spacing_small" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_pick_time"
+                android:id="@+id/btn_pick_datetime"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Pick Time"
-                android:layout_marginBottom="4dp"
+                android:text="@string/btn_pick_datetime"
                 app:icon="@android:drawable/ic_menu_recent_history" />
 
             <TextView
-                android:id="@+id/tv_selected_time"
+                android:id="@+id/tv_selected_datetime"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="24sp"
-                android:textColor="@color/colorPrimary"
+                android:textSize="18sp"
+                android:textColor="?attr/colorPrimary"
+                android:textStyle="bold"
                 android:gravity="center"
-                android:layout_marginBottom="16dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="@dimen/spacing_medium"
                 android:visibility="gone" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/colorDivider"
+                android:layout_marginBottom="@dimen/spacing_medium" />
+
+            <!-- ── Section: Recurrence ── -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/lbl_recurrence"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorPrimary"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Repeat"
-                android:textSize="14sp"
+                android:text="@string/helper_recurrence"
+                android:textAppearance="?attr/textAppearanceBodySmall"
                 android:textColor="@color/colorSecondary"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="@dimen/spacing_small" />
 
-            <RadioGroup
-                android:id="@+id/radio_group_repeat"
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/chip_group_recurrence"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:singleSelection="true"
+                app:selectionRequired="true"
+                android:layout_marginBottom="@dimen/spacing_small">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_once"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/recurrence_once"
+                    android:checked="true" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_daily"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/recurrence_daily" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_weekdays_mode"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/recurrence_weekdays" />
+
+            </com.google.android.material.chip.ChipGroup>
+
+            <!-- Weekday selector (visible only when "Days of Week" is chosen) -->
+            <LinearLayout
+                android:id="@+id/layout_weekdays"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginBottom="8dp">
+                android:visibility="gone"
+                android:layout_marginBottom="@dimen/spacing_small">
 
-                <RadioButton
-                    android:id="@+id/radio_once"
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/lbl_select_days"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="@color/colorSecondary"
+                    android:layout_marginBottom="4dp" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chip_group_weekdays"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:singleSelection="false">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_mon"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Mon" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_tue"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Tue" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_wed"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Wed" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_thu"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Thu" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_fri"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Fri" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_sat"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Sat" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_sun"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Sun" />
+
+                </com.google.android.material.chip.ChipGroup>
+
+                <TextView
+                    android:id="@+id/tv_weekday_error"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/error_weekday_required"
+                    android:textColor="@color/colorError"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:layout_marginTop="4dp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/colorDivider"
+                android:layout_marginBottom="@dimen/spacing_medium" />
+
+            <!-- ── Section: Repeat Interval ── -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/lbl_interval"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorPrimary"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/helper_interval"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="@color/colorSecondary"
+                android:layout_marginBottom="@dimen/spacing_small" />
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/chip_group_interval"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:singleSelection="true"
+                app:selectionRequired="true"
+                android:layout_marginBottom="@dimen/spacing_small">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_interval_none"
+                    style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="One-time" />
+                    android:text="@string/interval_none"
+                    android:checked="true" />
 
-                <RadioButton
-                    android:id="@+id/radio_daily"
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_interval_15"
+                    style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Daily" />
+                    android:text="@string/interval_15min" />
 
-                <RadioButton
-                    android:id="@+id/radio_count"
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_interval_30"
+                    style="@style/Widget.Material3.Chip.Filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Repeat X times" />
-            </RadioGroup>
+                    android:text="@string/interval_30min" />
 
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_interval_60"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/interval_1hr" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_interval_custom"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/interval_custom" />
+
+            </com.google.android.material.chip.ChipGroup>
+
+            <!-- Custom interval input (visible only when Custom is selected) -->
             <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/layout_repeat_count"
+                android:id="@+id/layout_custom_interval"
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Number of times"
-                android:layout_marginBottom="16dp"
+                android:hint="@string/hint_custom_interval"
+                android:layout_marginBottom="@dimen/spacing_medium"
                 android:visibility="gone">
                 <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/et_repeat_count"
+                    android:id="@+id/et_custom_interval"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="number"
                     android:imeOptions="actionDone" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Save button -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_save"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Save Schedule"
+                android:text="@string/btn_save_schedule"
                 android:textSize="16sp"
-                android:padding="14dp" />
+                android:padding="14dp"
+                android:layout_marginTop="@dimen/spacing_small"
+                android:layout_marginBottom="@dimen/spacing_large" />
 
         </LinearLayout>
     </ScrollView>
