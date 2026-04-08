@@ -30,6 +30,8 @@ public class ScheduleTriggerWorker extends Worker {
     public static final String KEY_HOUR = "hour";
     public static final String KEY_MINUTE = "minute";
     public static final String KEY_ESP_COMMAND = "esp_command";
+    public static final String KEY_WEEKDAYS = "weekdays";
+    public static final String KEY_INTERVAL_MINUTES = "interval_minutes";
 
     private static final String ESP_MAC_ADDRESS = "80:F3:DA:99:A0:3E";
     private static final long ACK_WAIT_SECONDS = 8L;
@@ -53,6 +55,8 @@ public class ScheduleTriggerWorker extends Worker {
         int hour = getInputData().getInt(KEY_HOUR, 0);
         int minute = getInputData().getInt(KEY_MINUTE, 0);
         String espCommand = getInputData().getString(KEY_ESP_COMMAND);
+        String weekdays = getInputData().getString(KEY_WEEKDAYS);
+        int intervalMinutes = getInputData().getInt(KEY_INTERVAL_MINUTES, 0);
 
         if (scheduleId <= 0) {
             Log.e(TAG, "Invalid scheduleId: " + scheduleId);
@@ -73,7 +77,7 @@ public class ScheduleTriggerWorker extends Worker {
         // Update schedule state in DB FIRST (deactivate one-time; advance recurring).
         // Doing this before sending the notification ensures that if anything below causes
         // an unexpected re-execution, the guard above will catch it and skip.
-        handleRepeat(db, scheduleId, repeatTypeStr, remainingCount, hour, minute);
+        handleRepeat(db, scheduleId, repeatTypeStr, remainingCount, hour, minute, weekdays, intervalMinutes);
 
         // Show the user-facing notification exactly once.
         NotificationHelper.showTriggerNotification(getApplicationContext(), scheduleId, name, desc);
@@ -158,7 +162,9 @@ public class ScheduleTriggerWorker extends Worker {
         return "BUZZ:" + scheduleId + ":" + DEFAULT_DURATION_MS;
     }
 
-    private void handleRepeat(AppDatabase db, long scheduleId, String repeatTypeStr, int remainingCount, int hour, int minute) {
+    private void handleRepeat(AppDatabase db, long scheduleId, String repeatTypeStr,
+                               int remainingCount, int hour, int minute,
+                               String weekdays, int intervalMinutes) {
         RepeatType repeatType = RepeatType.NONE;
         if (repeatTypeStr != null) {
             try {
@@ -169,33 +175,117 @@ public class ScheduleTriggerWorker extends Worker {
         ScheduleEntity schedule = db.scheduleDao().getById(scheduleId);
         if (schedule == null) return;
 
-        if (repeatType == RepeatType.DAILY) {
+        // --- Interval-based rescheduling (fires every N minutes per occurrence) ---
+        if (intervalMinutes > 0) {
+            long currentTrigger = schedule.triggerTimeMillis;
+            long nextTrigger = currentTrigger + (long) intervalMinutes * 60_000L;
+
+            if (repeatType == RepeatType.NONE) {
+                // ONCE + interval: fire every N minutes from the start time indefinitely.
+                // The schedule stays active until the user manually deactivates it.
+                schedule.triggerTimeMillis = nextTrigger;
+                schedule.updatedAt = System.currentTimeMillis();
+                db.scheduleDao().update(schedule);
+                new ScheduleManager(getApplicationContext()).schedule(schedule);
+                return;
+            }
+
+            boolean crossesDayBoundary = isCrossingDayBoundary(currentTrigger, nextTrigger);
+            if (crossesDayBoundary) {
+                // Interval has crossed into the next day; advance to the next recurrence base time.
+                if (repeatType == RepeatType.WEEKDAYS) {
+                    nextTrigger = getNextWeekdayTrigger(weekdays, hour, minute);
+                } else {
+                    // DAILY (and COUNT_BASED legacy)
+                    nextTrigger = getNextDailyTrigger(hour, minute);
+                }
+            }
+
+            schedule.triggerTimeMillis = nextTrigger;
+            schedule.updatedAt = System.currentTimeMillis();
+            db.scheduleDao().update(schedule);
+            new ScheduleManager(getApplicationContext()).schedule(schedule);
+            return;
+        }
+
+        // --- Standard (no interval) rescheduling ---
+        if (repeatType == RepeatType.DAILY || repeatType == RepeatType.COUNT_BASED) {
             long nextTrigger = getNextDailyTrigger(hour, minute);
+            schedule.triggerTimeMillis = nextTrigger;
+            schedule.updatedAt = System.currentTimeMillis();
+            if (repeatType == RepeatType.COUNT_BASED) {
+                int newRemaining = remainingCount - 1;
+                if (newRemaining <= 0) {
+                    schedule.isActive = false;
+                    db.scheduleDao().update(schedule);
+                    return;
+                }
+                schedule.remainingCount = newRemaining;
+            }
+            db.scheduleDao().update(schedule);
+            new ScheduleManager(getApplicationContext()).schedule(schedule);
+
+        } else if (repeatType == RepeatType.WEEKDAYS) {
+            long nextTrigger = getNextWeekdayTrigger(weekdays, hour, minute);
             schedule.triggerTimeMillis = nextTrigger;
             schedule.updatedAt = System.currentTimeMillis();
             db.scheduleDao().update(schedule);
             new ScheduleManager(getApplicationContext()).schedule(schedule);
 
-        } else if (repeatType == RepeatType.COUNT_BASED) {
-            int newRemaining = remainingCount - 1;
-            if (newRemaining > 0) {
-                long nextTrigger = getNextDailyTrigger(hour, minute);
-                schedule.triggerTimeMillis = nextTrigger;
-                schedule.remainingCount = newRemaining;
-                schedule.updatedAt = System.currentTimeMillis();
-                db.scheduleDao().update(schedule);
-                new ScheduleManager(getApplicationContext()).schedule(schedule);
-            } else {
-                schedule.isActive = false;
-                schedule.updatedAt = System.currentTimeMillis();
-                db.scheduleDao().update(schedule);
-            }
-
         } else {
+            // NONE: one-time — deactivate after firing
             schedule.isActive = false;
             schedule.updatedAt = System.currentTimeMillis();
             db.scheduleDao().update(schedule);
         }
+    }
+
+    /** Returns true if the two timestamps fall on different calendar days. */
+    private boolean isCrossingDayBoundary(long fromMillis, long toMillis) {
+        Calendar from = Calendar.getInstance();
+        from.setTimeInMillis(fromMillis);
+        Calendar to = Calendar.getInstance();
+        to.setTimeInMillis(toMillis);
+        return to.get(Calendar.YEAR) != from.get(Calendar.YEAR)
+                || to.get(Calendar.DAY_OF_YEAR) != from.get(Calendar.DAY_OF_YEAR);
+    }
+
+    /**
+     * Returns the next trigger time for the given hour/minute on the next weekday that appears
+     * in the {@code weekdaysStr} CSV (ISO day numbers: 1=Mon … 7=Sun).
+     * Falls back to a 24-hour advance if no valid weekday is found.
+     */
+    private long getNextWeekdayTrigger(String weekdaysStr, int hour, int minute) {
+        if (weekdaysStr == null || weekdaysStr.isEmpty()) {
+            return getNextDailyTrigger(hour, minute);
+        }
+
+        java.util.Set<Integer> days = new java.util.HashSet<>();
+        for (String s : weekdaysStr.split(",")) {
+            try { days.add(Integer.parseInt(s.trim())); } catch (NumberFormatException ignored) {}
+        }
+        if (days.isEmpty()) {
+            return getNextDailyTrigger(hour, minute);
+        }
+
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DAY_OF_MONTH, 1); // start searching from tomorrow
+        cal.set(Calendar.HOUR_OF_DAY, hour);
+        cal.set(Calendar.MINUTE, minute);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+
+        for (int i = 0; i < 7; i++) {
+            // Calendar.DAY_OF_WEEK: 1=Sun, 2=Mon, …, 7=Sat → ISO: 1=Mon, …, 6=Sat, 7=Sun
+            int calDow = cal.get(Calendar.DAY_OF_WEEK);
+            int isoDow = (calDow == Calendar.SUNDAY) ? 7 : calDow - 1;
+            if (days.contains(isoDow)) {
+                return cal.getTimeInMillis();
+            }
+            cal.add(Calendar.DAY_OF_MONTH, 1);
+        }
+
+        return getNextDailyTrigger(hour, minute); // unreachable for valid input
     }
 
     private long getNextDailyTrigger(int hour, int minute) {

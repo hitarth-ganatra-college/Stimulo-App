@@ -3,4 +3,48 @@
     <string name="add_schedule">Add Schedule</string>
     <string name="dashboard_empty">No schedules yet.\nTap + to add one!</string>
     <string name="nav_dashboard">Dashboard</string>
+
+    <!-- Add Schedule screen -->
+    <string name="lbl_basic_info">Basic Info</string>
+    <string name="hint_event_name">Event / Habit Name *</string>
+    <string name="hint_description">Description (optional)</string>
+    <string name="hint_category">Category</string>
+    <string name="lbl_when">When</string>
+    <string name="helper_datetime">Tap to choose a date and time for the first occurrence</string>
+    <string name="btn_pick_datetime">Pick Date &amp; Time</string>
+    <string name="lbl_recurrence">Recurrence</string>
+    <string name="helper_recurrence">How often should this schedule repeat?</string>
+    <string name="recurrence_once">Once</string>
+    <string name="recurrence_daily">Daily</string>
+    <string name="recurrence_weekdays">Days of Week</string>
+    <string name="lbl_select_days">Select days (tap to toggle)</string>
+    <string name="error_weekday_required">Please select at least one day</string>
+    <string name="lbl_interval">Repeat Interval</string>
+    <string name="helper_interval">Optionally fire repeatedly at this interval within each scheduled day</string>
+    <string name="interval_none">None</string>
+    <string name="interval_15min">15 min</string>
+    <string name="interval_30min">30 min</string>
+    <string name="interval_1hr">1 hr</string>
+    <string name="interval_custom">Custom</string>
+    <string name="hint_custom_interval">Interval in minutes (1 – 1440)</string>
+    <string name="error_custom_interval">Enter a valid interval between 1 and 1440 minutes</string>
+    <string name="error_name_required">Event name is required</string>
+    <string name="error_datetime_required">Please pick a date and time</string>
+    <string name="error_datetime_past">Selected date and time must be in the future</string>
+    <string name="btn_save_schedule">Save Schedule</string>
+    <string name="msg_schedule_saved">Schedule saved!</string>
+
+    <!-- Category list -->
+    <string-array name="schedule_categories">
+        <item>Study</item>
+        <item>Work</item>
+        <item>Health</item>
+        <item>Fitness</item>
+        <item>Medication</item>
+        <item>Meeting</item>
+        <item>Personal</item>
+        <item>Finance</item>
+        <item>Home</item>
+        <item>Other</item>
+    </string-array>
 </resources>

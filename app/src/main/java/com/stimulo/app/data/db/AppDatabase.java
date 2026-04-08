@@ -9,7 +9,7 @@ import com.stimulo.app.data.dao.TriggerLogDao;
 import com.stimulo.app.data.entity.ScheduleEntity;
 import com.stimulo.app.data.entity.TriggerLogEntity;
 
-@Database(entities = {ScheduleEntity.class, TriggerLogEntity.class}, version = 1, exportSchema = false)
+@Database(entities = {ScheduleEntity.class, TriggerLogEntity.class}, version = 2, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
     private static volatile AppDatabase INSTANCE;
 
