@@ -59,9 +59,24 @@ public class ScheduleTriggerWorker extends Worker {
             return Result.failure();
         }
 
-        NotificationHelper.showTriggerNotification(getApplicationContext(), scheduleId, name, desc);
-
         AppDatabase db = AppDatabase.getInstance(getApplicationContext());
+
+        // Guard: if the schedule is no longer active (already fired, cancelled, or deactivated),
+        // skip silently. This prevents duplicate notifications if WorkManager ever re-runs this
+        // worker (e.g., after a process restart with a pending work item still in its queue).
+        ScheduleEntity currentSchedule = db.scheduleDao().getById(scheduleId);
+        if (currentSchedule == null || !currentSchedule.isActive) {
+            Log.w(TAG, "Schedule " + scheduleId + " is no longer active, skipping trigger");
+            return Result.success();
+        }
+
+        // Update schedule state in DB FIRST (deactivate one-time; advance recurring).
+        // Doing this before sending the notification ensures that if anything below causes
+        // an unexpected re-execution, the guard above will catch it and skip.
+        handleRepeat(db, scheduleId, repeatTypeStr, remainingCount, hour, minute);
+
+        // Show the user-facing notification exactly once.
+        NotificationHelper.showTriggerNotification(getApplicationContext(), scheduleId, name, desc);
 
         TriggerLogEntity log = new TriggerLogEntity();
         log.scheduleId = scheduleId;
@@ -116,12 +131,14 @@ public class ScheduleTriggerWorker extends Worker {
         if (acked[0]) {
             Log.i(TAG, "ESP32 ACK scheduleId=" + scheduleId + " response=" + responseOrError[0]);
         } else {
+            // ESP delivery is best-effort. Do NOT return Result.retry() here: retrying would
+            // re-run doWork() and fire the notification a second (or third) time, which is the
+            // root cause of the duplicate-notification bug. The trigger log records the failure
+            // for diagnostics.
             Log.e(TAG, "ESP32 FAILED scheduleId=" + scheduleId + ", reason=" + responseOrError[0]);
         }
 
-        handleRepeat(db, scheduleId, repeatTypeStr, remainingCount, hour, minute);
-
-        return acked[0] ? Result.success() : Result.retry();
+        return Result.success();
     }
 
     private String normalizeCommand(long scheduleId, String espCommand) {
