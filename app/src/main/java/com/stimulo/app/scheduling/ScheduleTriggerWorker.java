@@ -1,12 +1,12 @@
 package com.stimulo.app.scheduling;
 
 import android.content.Context;
-import android.content.Intent;
-import android.os.Build;
 import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
+
 import com.stimulo.app.data.db.AppDatabase;
 import com.stimulo.app.data.entity.ScheduleEntity;
 import com.stimulo.app.data.entity.TriggerLogEntity;
@@ -14,8 +14,10 @@ import com.stimulo.app.esp.Esp32Communicator;
 import com.stimulo.app.esp.StubEsp32Communicator;
 import com.stimulo.app.model.RepeatType;
 import com.stimulo.app.notification.NotificationHelper;
-import com.stimulo.app.service.TriggerForegroundService;
+
 import java.util.Calendar;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class ScheduleTriggerWorker extends Worker {
     private static final String TAG = "ScheduleTriggerWorker";
@@ -29,12 +31,15 @@ public class ScheduleTriggerWorker extends Worker {
     public static final String KEY_MINUTE = "minute";
     public static final String KEY_ESP_COMMAND = "esp_command";
 
+    private static final String ESP_MAC_ADDRESS = "80:F3:DA:99:A0:3E";
+    private static final long ACK_WAIT_SECONDS = 8L;
+    private static final int DEFAULT_DURATION_MS = 500;
+
     private final Esp32Communicator esp32Communicator;
 
     public ScheduleTriggerWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
-        // TODO: Replace StubEsp32Communicator with actual implementation when ESP32 is ready
-        this.esp32Communicator = new StubEsp32Communicator();
+        this.esp32Communicator = new StubEsp32Communicator(context, ESP_MAC_ADDRESS);
     }
 
     @NonNull
@@ -49,93 +54,131 @@ public class ScheduleTriggerWorker extends Worker {
         int minute = getInputData().getInt(KEY_MINUTE, 0);
         String espCommand = getInputData().getString(KEY_ESP_COMMAND);
 
-        Log.i(TAG, "Trigger fired for schedule " + scheduleId + " (" + name + ")");
-
-        // 1. Show trigger notification
-        NotificationHelper.showTriggerNotification(getApplicationContext(), scheduleId, name, desc);
-
-        // 2. Start foreground service for the trigger window
-        Intent serviceIntent = new Intent(getApplicationContext(), TriggerForegroundService.class);
-        serviceIntent.putExtra(KEY_SCHEDULE_ID, scheduleId);
-        serviceIntent.putExtra(KEY_SCHEDULE_NAME, name);
-        serviceIntent.putExtra(KEY_ESP_COMMAND, espCommand != null ? espCommand : "BUZZ:500:1");
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getApplicationContext().startForegroundService(serviceIntent);
-        } else {
-            getApplicationContext().startService(serviceIntent);
+        if (scheduleId <= 0) {
+            Log.e(TAG, "Invalid scheduleId: " + scheduleId);
+            return Result.failure();
         }
 
-        // 3. Log trigger occurrence
+        NotificationHelper.showTriggerNotification(getApplicationContext(), scheduleId, name, desc);
+
+        AppDatabase db = AppDatabase.getInstance(getApplicationContext());
+
         TriggerLogEntity log = new TriggerLogEntity();
         log.scheduleId = scheduleId;
         log.triggerTime = System.currentTimeMillis();
         log.status = "SENT";
-        AppDatabase.getInstance(getApplicationContext()).triggerLogDao().insert(log);
+        log.espResponse = "";
+        long logId = db.triggerLogDao().insert(log);
 
-        // 4. Send ESP32 command
-        String cmd = (espCommand != null && !espCommand.isEmpty()) ? espCommand : "BUZZ:500:1";
+        String cmd = normalizeCommand(scheduleId, espCommand);
+        Log.i(TAG, "Sending ESP cmd for scheduleId=" + scheduleId + ": " + cmd);
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        final boolean[] acked = {false};
+        final String[] responseOrError = {""};
+
         esp32Communicator.sendBuzzCommand(scheduleId, cmd, new Esp32Communicator.AckCallback() {
             @Override
             public void onAck(long id, String response) {
-                Log.i(TAG, "ESP32 ACK for schedule " + id + ": " + response);
-                // TODO: Update trigger log status to ACK
+                acked[0] = true;
+                responseOrError[0] = (response == null || response.isEmpty()) ? "ACK" : response;
+                latch.countDown();
             }
 
             @Override
             public void onFailure(long id, String error) {
-                Log.e(TAG, "ESP32 FAILED for schedule " + id + ": " + error);
-                // TODO: Implement retry logic
+                acked[0] = false;
+                responseOrError[0] = (error == null || error.isEmpty()) ? "Unknown BLE failure" : error;
+                latch.countDown();
             }
         });
 
-        // 5. Handle repeat scheduling
+        boolean callbackReceived;
+        try {
+            callbackReceived = latch.await(ACK_WAIT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            callbackReceived = false;
+            responseOrError[0] = "Interrupted while waiting ACK";
+        }
+
+        if (!callbackReceived) {
+            acked[0] = false;
+            responseOrError[0] = "ACK timeout after " + ACK_WAIT_SECONDS + "s";
+        }
+
+        db.triggerLogDao().updateStatus(
+                logId,
+                acked[0] ? "ACK" : "FAILED",
+                responseOrError[0]
+        );
+
+        if (acked[0]) {
+            Log.i(TAG, "ESP32 ACK scheduleId=" + scheduleId + " response=" + responseOrError[0]);
+        } else {
+            Log.e(TAG, "ESP32 FAILED scheduleId=" + scheduleId + ", reason=" + responseOrError[0]);
+        }
+
+        handleRepeat(db, scheduleId, repeatTypeStr, remainingCount, hour, minute);
+
+        return acked[0] ? Result.success() : Result.retry();
+    }
+
+    private String normalizeCommand(long scheduleId, String espCommand) {
+        if (espCommand != null && !espCommand.trim().isEmpty()) {
+            String c = espCommand.trim();
+
+            // Convert old format BUZZ:<duration>:<x> -> BUZZ:<scheduleId>:<duration>
+            String[] parts = c.split(":");
+            if (parts.length == 3 && "BUZZ".equalsIgnoreCase(parts[0])) {
+                try {
+                    int duration = Integer.parseInt(parts[1]);
+                    return "BUZZ:" + scheduleId + ":" + duration;
+                } catch (Exception ignored) { }
+            }
+            return c;
+        }
+        return "BUZZ:" + scheduleId + ":" + DEFAULT_DURATION_MS;
+    }
+
+    private void handleRepeat(AppDatabase db, long scheduleId, String repeatTypeStr, int remainingCount, int hour, int minute) {
         RepeatType repeatType = RepeatType.NONE;
         if (repeatTypeStr != null) {
             try {
                 repeatType = RepeatType.valueOf(repeatTypeStr);
-            } catch (IllegalArgumentException e) {
-                Log.w(TAG, "Unknown repeat type: " + repeatTypeStr);
-            }
+            } catch (IllegalArgumentException ignored) {}
         }
 
-        AppDatabase db = AppDatabase.getInstance(getApplicationContext());
         ScheduleEntity schedule = db.scheduleDao().getById(scheduleId);
+        if (schedule == null) return;
 
-        if (schedule != null) {
-            if (repeatType == RepeatType.DAILY) {
+        if (repeatType == RepeatType.DAILY) {
+            long nextTrigger = getNextDailyTrigger(hour, minute);
+            schedule.triggerTimeMillis = nextTrigger;
+            schedule.updatedAt = System.currentTimeMillis();
+            db.scheduleDao().update(schedule);
+            new ScheduleManager(getApplicationContext()).schedule(schedule);
+
+        } else if (repeatType == RepeatType.COUNT_BASED) {
+            int newRemaining = remainingCount - 1;
+            if (newRemaining > 0) {
                 long nextTrigger = getNextDailyTrigger(hour, minute);
                 schedule.triggerTimeMillis = nextTrigger;
+                schedule.remainingCount = newRemaining;
                 schedule.updatedAt = System.currentTimeMillis();
                 db.scheduleDao().update(schedule);
                 new ScheduleManager(getApplicationContext()).schedule(schedule);
-                Log.i(TAG, "Rescheduled daily trigger for " + scheduleId + " at " + nextTrigger);
-
-            } else if (repeatType == RepeatType.COUNT_BASED) {
-                int newRemaining = remainingCount - 1;
-                if (newRemaining > 0) {
-                    long nextTrigger = getNextDailyTrigger(hour, minute);
-                    schedule.triggerTimeMillis = nextTrigger;
-                    schedule.remainingCount = newRemaining;
-                    schedule.updatedAt = System.currentTimeMillis();
-                    db.scheduleDao().update(schedule);
-                    new ScheduleManager(getApplicationContext()).schedule(schedule);
-                    Log.i(TAG, "Rescheduled count-based trigger, remaining=" + newRemaining);
-                } else {
-                    schedule.isActive = false;
-                    schedule.updatedAt = System.currentTimeMillis();
-                    db.scheduleDao().update(schedule);
-                    Log.i(TAG, "Count-based schedule " + scheduleId + " completed all repeats");
-                }
-
             } else {
-                // NONE - one-time, mark inactive
                 schedule.isActive = false;
                 schedule.updatedAt = System.currentTimeMillis();
                 db.scheduleDao().update(schedule);
             }
-        }
 
-        return Result.success();
+        } else {
+            schedule.isActive = false;
+            schedule.updatedAt = System.currentTimeMillis();
+            db.scheduleDao().update(schedule);
+        }
     }
 
     private long getNextDailyTrigger(int hour, int minute) {
