@@ -153,9 +153,9 @@ public class AddScheduleActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.error_datetime_required, Toast.LENGTH_SHORT).show();
             return;
         }
-        // If the chosen time is in the past, move it to the next occurrence
+        // Reject times in the past
         if (selectedDateTime.getTimeInMillis() <= System.currentTimeMillis()) {
-            Toast.makeText(this, R.string.error_datetime_required, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.error_datetime_past, Toast.LENGTH_SHORT).show();
             return;
         }
 

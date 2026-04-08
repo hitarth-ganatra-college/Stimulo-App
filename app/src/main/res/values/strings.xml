@@ -30,6 +30,7 @@
     <string name="error_custom_interval">Enter a valid interval between 1 and 1440 minutes</string>
     <string name="error_name_required">Event name is required</string>
     <string name="error_datetime_required">Please pick a date and time</string>
+    <string name="error_datetime_past">Selected date and time must be in the future</string>
     <string name="btn_save_schedule">Save Schedule</string>
     <string name="msg_schedule_saved">Schedule saved!</string>
 
